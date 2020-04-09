@@ -5,7 +5,7 @@ from broker.broker import Broker
 
 class CatalogTest(TestCase):
     def test_returns_default_catalog(self):
-        subject = Broker()
+        subject = Broker("Jenkins-Broker", "Jenkins-Plan-GID")
 
         catalog = subject.catalog()
 

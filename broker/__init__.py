@@ -7,6 +7,7 @@ from openbrokerapi.api import BrokerCredentials
 
 from . import log_util
 from .broker import Broker
+from .broker import create_broker_blueprint
 
 # Configure logging
 # You can overwrite the log_level by setting LOG_LEVEL in the environment
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 def setup_app(credentials: Optional[BrokerCredentials] = None) -> Flask:
     app = Flask(__name__)
 
-    app.register_blueprint(broker.create_broker_blueprint(credentials))
+    app.register_blueprint(create_broker_blueprint(credentials))
 
     # Endpoint to test if server comes up
     @app.route('/ping')

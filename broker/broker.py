@@ -11,7 +11,11 @@ from openbrokerapi.service_broker import (
     ProvisionDetails,
     ProvisionedServiceSpec,
     Service,
-    UnbindSpec)
+    UnbindSpec,
+    ProvisionState)
+from openbrokerapi.catalog import ServicePlan
+from openbrokerapi import errors
+from . import jenkins_utils
 
 logger = logging.getLogger(__name__)
 
@@ -26,15 +30,55 @@ class Broker(ServiceBroker):
 
     If some steps are async, you will have to add further methods. Please have a look in the Open Service Broker Spec.
     """
+    CREATING = 'CREATING'
+    CREATED = 'CREATED'
+    BINDING = 'BINDING'
+    BOUND = 'BOUND'
+    UNBINDING = 'UNBINDING'
+    DELETING = 'DELETING'
 
-    def __init__(self):
-        pass
+    def __init__(self,service_guid,plan_guid):
+        self.service_guid = service_guid
+        self.plan_guid = plan_guid
+        self.service_instances = dict()
 
     def catalog(self) -> Service:
-        pass
+        return Service(
+            id=self.service_guid,
+            name='Jenkins enabled Git',
+            description='Create jenkins job for a given git repo',
+            bindable=False,
+            plans=[
+                ServicePlan(
+                    id=self.plan_guid,
+                    name='Testing Plan',
+                    description='Used in Testing process',
+                    free=True
+                )
+            ]
+        )
 
     def provision(self, instance_id: str, details: ProvisionDetails, async_allowed: bool, **kwargs) -> ProvisionedServiceSpec:
-        pass
+        if not async_allowed:
+            raise errors.ErrAsyncRequired()
+        self.service_instances[instance_id] = {
+            'provision_details':details,
+            'state': self.CREATING
+        }
+        try:
+            githib_url = details.parameters.get('git_repo_url')
+            jenkins_utils.provision_job(githib_url)
+        except Exception as e:
+            print(e)
+            raise errors.ServiceException()
+        self.service_instances[instance_id] = {
+            'provision_details': details,
+            'state': self.CREATED
+        }
+        return ProvisionedServiceSpec(
+            state=ProvisionState.IS_ASYNC,
+            operation='provision'
+        )
 
     def deprovision(self, instance_id: str, details: DeprovisionDetails, async_allowed: bool, **kwargs) -> DeprovisionServiceSpec:
         pass
@@ -47,4 +91,4 @@ class Broker(ServiceBroker):
 
 
 def create_broker_blueprint(credentials: api.BrokerCredentials):
-    return api.get_blueprint(Broker(), credentials, logger)
+    return api.get_blueprint(Broker("Jenkins-Broker","Jenkins-Plan-GID"), credentials, logger)

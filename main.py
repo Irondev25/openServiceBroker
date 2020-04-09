@@ -1,6 +1,6 @@
 import os
 
-from . import create_app
+from broker import create_app
 
 
 def main():
@@ -11,7 +11,7 @@ def main():
     """
     port = int(os.getenv('PORT', '5000'))
     app = create_app()
-    app.run('0.0.0.0', port=port, debug=True)
+    app.run('127.0.0.1', port=port, debug=True)
 
 
 if __name__ == '__main__':
