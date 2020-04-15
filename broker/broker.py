@@ -15,7 +15,7 @@ from openbrokerapi.service_broker import (
     ProvisionState)
 from openbrokerapi.catalog import ServicePlan
 from openbrokerapi import errors
-from . import jenkins_utils
+from broker import jenkins_utils
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,10 @@ class Broker(ServiceBroker):
         }
         try:
             githib_url = details.parameters.get('git_repo_url')
-            jenkins_utils.provision_job(githib_url)
+            github_id = details.parameters.get('github_id')
+            github_pass = details.parameters.get('github_pass')
+            jenkins_utils.provision_job(githib_url, github_id, github_pass)
+            # jenkins_utils.provision_job(githib_url)
         except Exception as e:
             print(e)
             raise errors.ServiceException()

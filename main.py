@@ -9,7 +9,7 @@ def main():
 
     Use a proper webserver in production!
     """
-    port = int(os.getenv('PORT', '5000'))
+    port = int(os.getenv('PORT', '5050'))
     app = create_app()
     app.run('127.0.0.1', port=port, debug=True)
 

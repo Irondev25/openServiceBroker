@@ -56,6 +56,7 @@ ls -la</command>
   <buildWrappers/>
 </project>"""
 
+
 def get_jenkins_server(url, username, password):
     try:
         return jenkins.Jenkins(url, username=username, password=password)
@@ -81,7 +82,7 @@ def get_git_values(github_url):
     """
     return dictionary
     {
-        'author':author,
+        "author":author,
         "repo_name":repo_name
     }
     """
@@ -89,35 +90,41 @@ def get_git_values(github_url):
     author = values[3]
     repo_name = values[4].split('.')[0]
     return {
-        'author':author,
-        "repo_name":repo_name
+        "author": author,
+        "repo_name": repo_name
     }
 
-def create_webhook(github_repo,jenkins_url, git_values):
-    API_URL = 'https://api.github.com/repos/'+git_values['author']+'/'+git_values['repo_name']+'/hooks'
+
+def create_webhook(github_repo, jenkins_url, git_values, id, password):
+    API_URL = 'https://api.github.com/repos/' + \
+        git_values['author']+'/'+git_values['repo_name']+'/hooks'
     print(API_URL)
     PARAMS = {
-        "name":"webhook",
+        "name": "web",
         "active": True,
-        "events": ["push","merge"],
+        "events": ["push"],
         "config": {
             "url": jenkins_url+'github-webhook/',
-            "content_type" : "json",
-            "insecure_ssl" : "0"
+            "content_type": "json",
+            "insecure_ssl": "0"
         }
     }
-    r = requests.post(url=API_URL,data=json.dumps(PARAMS))
-    if r.status_code == 201:
+    headers = {
+        'Authorization': 'Basic SXJvbmRldjI1OlJhaHVsYmhhc2thcjEyMw==',
+        'Content-Type': 'text/plain'
+    }
+    response = requests.request("POST", API_URL, headers=headers, data=json.dumps(PARAMS))
+    if response.status_code == 201:
         print("Webhook Created")
         logger.info("Webhook Created")
     else:
         raise Exception("Falied To Create Webhook: %d", r.status_code)
 
 
-def provision_job(github_repo_url):
+def provision_job(github_repo_url, github_id, github_pass):
     github_uri = github_repo_url
     git_values = get_git_values(github_repo_url)
-    job_name = git_values['author']+":"+git_values['repo_name']
+    job_name = git_values['author']+"_"+git_values['repo_name']
     description = github_uri
     github_url = github_uri[:-4] + '/'
     github_repo = github_uri
@@ -135,7 +142,7 @@ def provision_job(github_repo_url):
         raise e
 
     try:
-        create_webhook(github_repo,jenkins_url, git_values)
+        create_webhook(github_repo, jenkins_url, git_values, github_id, github_pass)
     except Exception as e:
         jobs = server.get_jobs()
         server.delete_job(job_name)
