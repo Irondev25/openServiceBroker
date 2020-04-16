@@ -61,22 +61,28 @@ class Broker(ServiceBroker):
     def provision(self, instance_id: str, details: ProvisionDetails, async_allowed: bool, **kwargs) -> ProvisionedServiceSpec:
         if not async_allowed:
             raise errors.ErrAsyncRequired()
+
+        if instance_id in self.service_instances.keys():
+            raise errors.ErrInstanceAlreadyExists()
         self.service_instances[instance_id] = {
             'provision_details':details,
             'state': self.CREATING
         }
         try:
-            githib_url = details.parameters.get('git_repo_url')
+            github_url = details.parameters.get('git_repo_url')
             github_id = details.parameters.get('github_id')
             github_pass = details.parameters.get('github_pass')
-            jenkins_utils.provision_job(githib_url, github_id, github_pass)
+            provision_details = jenkins_utils.provision_job(github_url, github_id, github_pass)
             # jenkins_utils.provision_job(githib_url)
         except Exception as e:
             print(e)
             raise errors.ServiceException()
         self.service_instances[instance_id] = {
             'provision_details': details,
-            'state': self.CREATED
+            'state': self.CREATED,
+            'job_name': provision_details['job_name'],
+            'github_hook_id': provision_details['github_hook_id'],
+            'github_api_url': provision_details['github_api_url']
         }
         return ProvisionedServiceSpec(
             state=ProvisionState.IS_ASYNC,
@@ -84,7 +90,18 @@ class Broker(ServiceBroker):
         )
 
     def deprovision(self, instance_id: str, details: DeprovisionDetails, async_allowed: bool, **kwargs) -> DeprovisionServiceSpec:
-        pass
+        instance = self.service_instances.get(instance_id)
+        if instance is None:
+            raise errors.ErrInstanceDoesNotExist()
+        if instance.get('state') == self.CREATED:
+            print(self.service_instances[instance_id])
+            context_instance = self.service_instances[instance_id]
+            job_name = context_instance['job_name']
+            github_hook_id = context_instance['github_hook_id']
+            github_api_url = context_instance['github_api_url']
+            jenkins_utils.deprovision_job(job_name, github_hook_id, github_api_url)
+            del self.service_instances[instance_id]
+            return DeprovisionServiceSpec(False)
 
     def bind(self, instance_id: str, binding_id: str, details: BindDetails, async_allowed: bool, **kwargs) -> Binding:
         pass

@@ -55,6 +55,9 @@ ls -la</command>
   <publishers/>
   <buildWrappers/>
 </project>"""
+JENKINS_URL = "http://34.107.140.118/"
+JENKINS_ID = "admin"
+JENKINS_PASSWD = "admin"
 
 
 def get_jenkins_server(url, username, password):
@@ -72,6 +75,9 @@ def create_job(server, job_name, description, github_url, github_repo):
     except JenkinsException as e:
         print("Unable to create Jenkins Job")
         raise e
+    
+def delete_job(server, job_name):
+  server.delete_job(job_name)
 
 # def get_job(server, job_name):
 #     try:
@@ -99,7 +105,7 @@ def create_webhook(github_repo, jenkins_url, git_values, id, password):
     API_URL = 'https://api.github.com/repos/' + \
         git_values['author']+'/'+git_values['repo_name']+'/hooks'
     print(API_URL)
-    PARAMS = {
+    payload = {
         "name": "web",
         "active": True,
         "events": ["push"],
@@ -113,12 +119,29 @@ def create_webhook(github_repo, jenkins_url, git_values, id, password):
         'Authorization': 'Basic SXJvbmRldjI1OlJhaHVsYmhhc2thcjEyMw==',
         'Content-Type': 'text/plain'
     }
-    response = requests.request("POST", API_URL, headers=headers, data=json.dumps(PARAMS))
+    response = requests.request("POST", API_URL, headers=headers, data=json.dumps(payload))
     if response.status_code == 201:
         print("Webhook Created")
         logger.info("Webhook Created")
     else:
-        raise Exception("Falied To Create Webhook: %d", r.status_code)
+        raise Exception("Falied To Create Webhook: %d", response.status_code)
+    return {
+      'hook_id': response.json()['id'],
+      'API_URL': API_URL
+    }
+
+def delete_webhook(API_URL, id):
+  url = API_URL + '/' + str(id)
+  payload = {}
+  headers = {
+      'Authorization': 'Basic SXJvbmRldjI1OlJhaHVsYmhhc2thcjEyMw=='
+  }
+  response = requests.request("DELETE",url,headers=headers,data=payload)
+  if(response.status_code == 204):
+    print("Webhook Sucessfully Deleted")
+  else:
+    raise Exception("Failed to delete Webhook: %d", response.status_code)
+
 
 
 def provision_job(github_repo_url, github_id, github_pass):
@@ -142,8 +165,21 @@ def provision_job(github_repo_url, github_id, github_pass):
         raise e
 
     try:
-        create_webhook(github_repo, jenkins_url, git_values, github_id, github_pass)
+        github_details = create_webhook(github_repo, jenkins_url, git_values, github_id, github_pass)
     except Exception as e:
-        jobs = server.get_jobs()
-        server.delete_job(job_name)
+        delete_job(server,job_name)
         raise e
+    return {
+        'job_name': job_name,
+        'github_hook_id': github_details['hook_id'],
+        'github_api_url': github_details['API_URL']
+    }
+
+
+def deprovision_job(job_name,github_hook_id,github_api_url):
+  try:
+    server = get_jenkins_server(JENKINS_URL, JENKINS_ID, JENKINS_PASSWD)
+  except Exception as e:
+    raise e
+  delete_webhook(github_api_url,github_hook_id)
+  delete_job(server,job_name)
