@@ -12,10 +12,14 @@ from openbrokerapi.service_broker import (
     ProvisionedServiceSpec,
     Service,
     UnbindSpec,
-    ProvisionState)
+    ProvisionState,
+    BindState, 
+    GetInstanceDetailsSpec,
+    GetBindingSpec)
 from openbrokerapi.catalog import ServicePlan
 from openbrokerapi import errors
 from broker import jenkins_utils
+from broker import github_utils
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +51,9 @@ class Broker(ServiceBroker):
             id=self.service_guid,
             name='Jenkins enabled Git',
             description='Create jenkins job for a given git repo',
-            bindable=False,
+            bindable=True,
+            bindings_retrievable=True,
+            instances_retrievable=True,
             plans=[
                 ServicePlan(
                     id=self.plan_guid,
@@ -69,21 +75,33 @@ class Broker(ServiceBroker):
             'state': self.CREATING
         }
         try:
-            github_url = details.parameters.get('git_repo_url')
+            project_name = details.parameters.get('project_name')
             github_id = details.parameters.get('github_id')
             github_pass = details.parameters.get('github_pass')
-            provision_details = jenkins_utils.provision_job(github_url, github_id, github_pass)
+            email_id = details.parameters.get('email')
+            repo_details = jenkins_utils.provision_job(project_name, github_id, github_pass, email_id)
             # jenkins_utils.provision_job(githib_url)
         except Exception as e:
             print(e)
-            raise errors.ServiceException()
+            raise errors.ServiceException(e)
+
+        # repo_details = {
+        #     'html_url' : repo.html_url,
+        #     'clone_url': repo.clone_url,
+        #     'hooks_url': repo.hooks_url,
+        #     'hook_id'  : hook.id
+        # }
+        
         self.service_instances[instance_id] = {
             'provision_details': details,
             'state': self.CREATED,
-            'job_name': provision_details['job_name'],
-            'github_hook_id': provision_details['github_hook_id'],
-            'github_api_url': provision_details['github_api_url']
+            'project_name': project_name,
+            'repo_html_url': repo_details.get('html_url'),
+            'repo_clone_url': repo_details.get('clone_url'),
+            'repo_hooks_url': repo_details.get('hooks_url'),
+            'repo_hook_id': repo_details.get('hook_id')
         }
+
         return ProvisionedServiceSpec(
             state=ProvisionState.IS_ASYNC,
             operation='provision'
@@ -96,18 +114,65 @@ class Broker(ServiceBroker):
         if instance.get('state') == self.CREATED:
             print(self.service_instances[instance_id])
             context_instance = self.service_instances[instance_id]
-            job_name = context_instance['job_name']
-            github_hook_id = context_instance['github_hook_id']
-            github_api_url = context_instance['github_api_url']
-            jenkins_utils.deprovision_job(job_name, github_hook_id, github_api_url)
+            project_name = context_instance.get('project_name')
+            api_url = context_instance.get('repo_hooks_url') #api endpoint to delete hook
+            hook_id = context_instance.get('repo_hook_id') #hook id
+            jenkins_utils.deprovision_job(project_name, api_url, hook_id)
             del self.service_instances[instance_id]
             return DeprovisionServiceSpec(False)
+        elif instance.get('state') in [self.BOUND,self.BINDING]:
+            raise errors.ErrBadRequest("Instance Binded,Can't deprovision")
 
     def bind(self, instance_id: str, binding_id: str, details: BindDetails, async_allowed: bool, **kwargs) -> Binding:
-        pass
+        instance = self.service_instances.get(instance_id,{})
+        if instance and instance.get('state') == self.CREATED:
+            self.service_instances[instance_id]['state'] = self.BINDING
+            clone_url = instance.get('repo_clone_url')
+            html_url = instance.get('repo_html_url')
+            credentials = {
+                'git_repo_url': html_url,
+                'git_repo_clone_url': clone_url
+            }
+            self.service_instances[instance_id]['state'] = self.BOUND
+            return Binding(state=BindState.SUCCESSFUL_BOUND,credentials=credentials)
+        else:
+            raise errors.ErrBindingAlreadyExists()
 
     def unbind(self, instance_id: str, binding_id: str, details: UnbindDetails, async_allowed: bool, **kwargs) -> UnbindSpec:
-        pass
+        instance = self.service_instances.get(instance_id, {})
+        if instance and instance.get('state') == self.BOUND:
+            self.service_instances[instance_id]['state'] = self.UNBINDING
+            self.service_instances[instance_id]['state'] = self.CREATED
+            return UnbindSpec(False)
+
+    def get_instance(self, instance_id: str, **kwargs) -> GetInstanceDetailsSpec:
+        instance = self.service_instances.get(instance_id)
+        if instance is None:
+            raise errors.ErrInstanceDoesNotExist()
+        provision_detail = instance.get('provision_details')
+        parameters = {
+            'github_repo': instance.get('repo_clone_url') 
+        }
+        return GetInstanceDetailsSpec(provision_detail.service_id,provision_detail.plan_id,parameters=parameters)
+    
+    def get_binding(self,
+                    instance_id: str,
+                    binding_id: str,
+                    **kwargs
+                    ) -> GetBindingSpec:
+        instance = self.service_instances.get(instance_id)
+        if instance is None:
+            raise errors.ErrInstanceDoesNotExist()
+        if instance.get('state') == self.BOUND:
+            clone_url = instance.get('repo_clone_url')
+            html_url = instance.get('repo_html_url')
+            creden = {
+                'git_repo_url': html_url,
+                'git_repo_clone_url': clone_url
+            }
+            return GetBindingSpec(credentials=creden)
+        else:
+            raise errors.ErrBindingDoesNotExist()
 
 
 def create_broker_blueprint(credentials: api.BrokerCredentials):
