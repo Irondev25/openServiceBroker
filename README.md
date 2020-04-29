@@ -1,6 +1,4 @@
-# OpenBrokerAPI Skeleton
-
-Basic skeleton to implement a service broker with [openbrokerapi](https://openbrokerapi.readthedocs.io/)
+# Broker for Jenkins enabled Git repository as a service(Conforms to Open Broker Service Specification)
 
 ## Set these as Environment Variables
 Before running set these as environment variables
