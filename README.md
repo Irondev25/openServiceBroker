@@ -2,6 +2,13 @@
 
 Basic skeleton to implement a service broker with [openbrokerapi](https://openbrokerapi.readthedocs.io/)
 
+## Set these as Environment Variables
+Before running set these as environment variables
+    export JENKINS_USERID=jenkinsid
+    export JENKINS_PASSWORD=jenkinspassword
+    export JENKINS_URL=http://{jenkinshosturl}/
+    export WEBHOOK_URL=http://{jenkinshosturl}/github-webhook/
+
 ## Run Jenkins Enabled GitHub Repository Service Server
 ```bash
 git clone https://github.com/Irondev25/oba.git
@@ -9,9 +16,21 @@ python -m virtualenv env
 source ./env/bin/activate
 cd oba
 pip install -r requirements.txt
-python main.py
 ```
 
+create .env file inside top directory and paste the following and set correct value of environment variable <br/>
+
+```code
+export JENKINS_USERID=jenkinsid
+export JENKINS_PASSWORD=jenkinspassword
+export JENKINS_URL=http://{jenkinshosturl}/
+export WEBHOOK_URL=http://{jenkinshosturl}/github-webhook/
+```
+
+and run the following
+```bash
+python main.py
+```
 > Server port is defined in main.py (defaults to 5050)
 
 ## Using Jenkins Enabled GitHub Repository Service
