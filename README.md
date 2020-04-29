@@ -112,7 +112,7 @@ python main.py
         plan_id: Jenkins-Plan-GID
 
 
-### 6. Get Binding
+### 7. Get Binding
     Method: PUT
     Api Endpoint: http://localhost:5050/v2/service_instances/jtest/service_bindings/mybinding
     Headers:
