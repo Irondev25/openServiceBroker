@@ -1,12 +1,5 @@
 # Broker for Jenkins enabled Git repository as a service(Conforms to Open Broker Service Specification)
 
-## Set these as Environment Variables
-Before running set these as environment variables
-    export JENKINS_USERID=jenkinsid
-    export JENKINS_PASSWORD=jenkinspassword
-    export JENKINS_URL=http://{jenkinshosturl}/
-    export WEBHOOK_URL=http://{jenkinshosturl}/github-webhook/
-
 ## Run Jenkins Enabled GitHub Repository Service Server
 ```bash
 git clone https://github.com/Irondev25/oba.git
@@ -16,7 +9,7 @@ cd oba
 pip install -r requirements.txt
 ```
 
-create .env file inside top directory and paste the following and set correct value of environment variable <br/>
+create .env file and paste the following and set correct value of environment variable <br/>
 
 ```code
 export JENKINS_USERID=jenkinsid
