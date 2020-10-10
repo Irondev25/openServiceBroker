@@ -1,5 +1,10 @@
 # Broker for Jenkins enabled Git repository as a service(Conforms to Open Broker Service Specification)
 
+> This project creates a jenkins job and attach it to your github repo using webhooks. So that when push or merge event occur's it will automatically trigger your build.
+
+> This project is proof of concept
+
+
 ## Run Jenkins Enabled GitHub Repository Service Server
 ```bash
 git clone https://github.com/Irondev25/oba.git
